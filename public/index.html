@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Espía - El Juego</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="icon" href="https://fav.farm/🕵️">
+</head>
+
+<body>
+    <nav>
+        <a href="/" class="nav-logo">🕵️ AGENTE SECRETO</a>
+        <a href="/admin" class="btn btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.8rem;">ADMIN</a>
+    </nav>
+
+    <!-- SETUP SCREEN -->
+    <main id="screen-setup" class="container glass-panel">
+        <h1>Configuración de Misión</h1>
+        <p>Configura los parámetros antes de inflitrarte.</p>
+
+        <div class="control-group">
+            <label>Jugadores Totales</label>
+            <input type="number" id="input-players" value="4" min="3" max="20">
+        </div>
+
+        <div class="control-group">
+            <label>Número de Espías</label>
+            <input type="number" id="input-spies" value="1" min="1" max="5">
+        </div>
+
+        <button id="btn-start" class="btn">INICIAR MISIÓN</button>
+    </main>
+
+    <!-- PASS DEVICE SCREEN -->
+    <main id="screen-pass" class="container glass-panel hidden">
+        <h2>Jugador <span id="current-player-num">1</span></h2>
+        <p>Pasa el dispositivo a este jugador.</p>
+        <div style="font-size: 4rem; margin: 2rem;">📱</div>
+        <button id="btn-reveal" class="btn">VER MI ROL</button>
+    </main>
+
+    <!-- REVEAL SCREEN -->
+    <main id="screen-reveal" class="container glass-panel hidden">
+        <h2>Tu Identidad Secreta</h2>
+        <div class="card-reveal">
+            <p style="text-transform: uppercase; letter-spacing: 2px; font-size: 0.8rem;">Clasificado</p>
+            <div id="role-display" class="role-text">???</div>
+            <p id="category-display" style="opacity: 0.7;">???</p>
+        </div>
+        <button id="btn-hide" class="btn btn-secondary">OCULTAR</button>
+    </main>
+
+    <!-- GAME OVER / VOTE SCREEN -->
+    <main id="screen-game" class="container glass-panel hidden">
+        <h1>¡Debate en Curso!</h1>
+        <p>Encuentren al espía antes de que el tiempo se agote.</p>
+
+        <div class="control-group">
+            <div id="timer" class="timer-display">05:00</div>
+        </div>
+
+        <div class="game-controls">
+            <button id="btn-timer-toggle" class="btn">INICIAR / PAUSA</button>
+            <button id="btn-finish" class="btn btn-danger">FINALIZAR / RESOLVER</button>
+        </div>
+    </main>
+
+    <!-- RESULTS SCREEN -->
+    <main id="screen-results" class="container glass-panel hidden">
+        <h1>Informe de Misión</h1>
+
+        <div class="result-card">
+            <p>La palabra secreta era:</p>
+            <h2 id="result-word" class="highlight-text">???</h2>
+            <p id="result-category" class="category-badge">???</p>
+        </div>
+
+        <div id="players-reveal-list" class="word-list">
+            <!-- JS will populate players here -->
+        </div>
+
+        <button id="btn-restart" class="btn" style="margin-top: 2rem;">NUEVA MISIÓN</button>
+    </main>
+
+    <script src="js/game.js"></script>
+</body>
+
+</html>

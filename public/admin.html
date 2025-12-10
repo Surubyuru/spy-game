@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Administración - Espía</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="icon" href="https://fav.farm/⚙️">
+</head>
+
+<body>
+    <nav>
+        <a href="/" class="nav-logo">⬅️ VOLVER AL JUEGO</a>
+        <span>PANEL DE CONTROL</span>
+    </nav>
+
+    <main class="container glass-panel" style="max-width: 800px;">
+        <h1>Base de Datos de Inteligencia</h1>
+        <p>Añade o elimina palabras clave para las misiones.</p>
+
+        <form id="add-word-form" style="display: flex; gap: 1rem; margin-top: 2rem; width: 100%;">
+            <input type="text" id="new-word" placeholder="Nueva Palabra (ej: Satélite)" required style="flex: 2;">
+            <input type="text" id="new-category" placeholder="Categoría (Opcional)" style="flex: 1;">
+            <button type="submit" class="btn">AÑADIR</button>
+        </form>
+
+        <div id="words-container" class="word-list">
+            <!-- Words will be injected here -->
+            <p style="grid-column: 1/-1;">Cargando palabras...</p>
+        </div>
+    </main>
+
+    <script src="js/admin.js"></script>
+</body>
+
+</html>
