@@ -5,6 +5,7 @@ const path = require('path');
 const db = require('./db');
 const http = require('http');
 const { Server } = require('socket.io');
+const fs = require('fs');
 
 const app = express();
 const server = http.createServer(app);
@@ -16,8 +17,39 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
+// --- DATABASE INIT ---
+async function initDB() {
+    console.log('🔄 Verificando estado de la base de datos...');
+    try {
+        // Verificar si hay palabras
+        const [rows] = await db.query('SELECT count(*) as count FROM words');
+        if (rows[0].count > 0) {
+            console.log('✅ Base de datos ya inicializada.');
+            return;
+        }
+    } catch (err) {
+        console.log('⚠️ Tabla "words" no encontrada o vacía. Iniciando setup...');
+    }
+
+    try {
+        const sql = fs.readFileSync(path.join(__dirname, 'setup.sql'), 'utf8');
+        const statements = sql.split(/;\s*$/m);
+
+        for (const statement of statements) {
+            if (statement.trim()) {
+                await db.query(statement);
+            }
+        }
+        console.log('✅ Base de datos inicializada con éxito (Tablas y Datos).');
+    } catch (err) {
+        console.error('❌ Error fatal inicializando DB:', err);
+    }
+}
+
+// Llamar a initDB al arrancar
+initDB();
+
 // --- GAME STATE MANAGEMENT ---
-// Salas: { 'CODE12': { players: [{id, name, role, word}], status: 'lobby', settings: {spies: 1} } }
 const rooms = {};
 
 function generateRoomCode() {
@@ -47,9 +79,7 @@ io.on('connection', (socket) => {
             room.players.push({ id: socket.id, name: playerName, isHost: false });
             socket.join(roomCode);
 
-            // Notificar al usuario actual
             socket.emit('joined_room', { roomCode, isHost: false, players: room.players });
-            // Notificar a todos en la sala que alguien entró
             io.to(roomCode).emit('update_players', room.players);
         } else {
             socket.emit('error_message', 'Sala no encontrada o juego ya iniciado.');
@@ -60,24 +90,19 @@ io.on('connection', (socket) => {
         const room = rooms[roomCode];
         if (!room) return;
 
-        // Configurar juego
         room.status = 'playing';
-        room.settings = settings; // { spies: N }
+        room.settings = settings;
 
         try {
-            // 1. Obtener palabra aleatoria de la BD
             const [rows] = await db.query('SELECT * FROM words ORDER BY RAND() LIMIT 1');
             const secretData = rows.length > 0 ? rows[0] : { word: 'Error', category: 'Error' };
 
             room.secretWord = secretData.word;
             room.category = secretData.category;
 
-            // 2. Asignar roles
             const totalPlayers = room.players.length;
             const roles = Array(totalPlayers).fill('citizen');
             let spiesAssigned = 0;
-
-            // Evitar bucle infinito si hay más espías que jugadores
             const numSpies = Math.min(settings.spies, totalPlayers - 1);
 
             while (spiesAssigned < numSpies) {
@@ -88,7 +113,6 @@ io.on('connection', (socket) => {
                 }
             }
 
-            // 3. Notificar a cada jugador su rol individualmente
             room.players.forEach((player, index) => {
                 player.role = roles[index];
                 player.word = player.role === 'citizen' ? room.secretWord : '???';
@@ -101,21 +125,21 @@ io.on('connection', (socket) => {
                 });
             });
 
-            // Enviar timer global
             io.to(roomCode).emit('start_timer', settings.time);
 
         } catch (err) {
             console.error(err);
-            io.to(roomCode).emit('error_message', 'Error iniciando juego');
+            const msg = err.code === 'ER_NO_SUCH_TABLE'
+                ? 'Error: La base de datos no está inicializada.'
+                : `Error iniciando juego: ${err.message}`;
+            io.to(roomCode).emit('error_message', msg);
         }
     });
 
-    // Sincronización de Timer (Desde el host)
     socket.on('sync_timer', ({ roomCode, time }) => {
         socket.to(roomCode).emit('update_timer', time);
     });
 
-    // Finalizar juego y revelar
     socket.on('reveal_game', ({ roomCode }) => {
         const room = rooms[roomCode];
         if (room) {
@@ -129,15 +153,12 @@ io.on('connection', (socket) => {
     });
 
     socket.on('disconnect', () => {
-        // Encontrar sala del usuario y eliminarlo
         for (const code in rooms) {
             const room = rooms[code];
             const playerIdx = room.players.findIndex(p => p.id === socket.id);
             if (playerIdx !== -1) {
                 room.players.splice(playerIdx, 1);
                 io.to(code).emit('update_players', room.players);
-
-                // Si la sala se vacía, borrarla
                 if (room.players.length === 0) delete rooms[code];
                 break;
             }
@@ -145,10 +166,8 @@ io.on('connection', (socket) => {
     });
 });
 
-
 // --- API ROUTES ---
 
-// Obtener todas las palabras
 app.get('/api/words', async (req, res) => {
     try {
         const [rows] = await db.query('SELECT * FROM words ORDER BY created_at DESC');
@@ -173,7 +192,6 @@ app.get('/api/word/random', async (req, res) => {
     }
 });
 
-// Añadir una nueva palabra
 app.post('/api/words', async (req, res) => {
     const { word, category } = req.body;
     if (!word) return res.status(400).json({ error: 'La palabra es requerida' });
@@ -191,7 +209,6 @@ app.post('/api/words', async (req, res) => {
     }
 });
 
-// Eliminar una palabra
 app.delete('/api/words/:id', async (req, res) => {
     const { id } = req.params;
     try {
@@ -212,8 +229,6 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Cambiar app.listen a server.listen para socket.io
 server.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
 });
-
