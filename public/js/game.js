@@ -131,18 +131,29 @@ function renderLobbyPlayers(players) {
     players.forEach(p => {
         const el = document.createElement('div');
         el.className = 'word-chip glass-panel';
-        
+
         // Handle connected status visual
-        if (p.connected === false) { 
-           el.style.opacity = '0.5';
-           el.innerText = p.name + ' (Desconectado)';
+        if (p.connected === false) {
+            el.style.opacity = '0.5';
+            el.innerText = p.name + ' (Desconectado)';
         } else {
-           el.innerText = p.name + (p.isHost ? ' (Líder)' : '');
+            el.innerText = p.name + (p.isHost ? ' (Líder)' : '');
         }
-        
+
         container.appendChild(el);
     });
 }
+
+// Exit button logic
+document.getElementById('btn-exit-game').addEventListener('click', () => {
+    if (confirm('¿Seguro que quieres salir?')) {
+        localStorage.removeItem('spy_session');
+        if (myRoomCode) {
+            socket.emit('leave_game', { roomCode: myRoomCode });
+        }
+        location.reload();
+    }
+});
 
 document.getElementById('btn-start-game').addEventListener('click', () => {
     const spies = parseInt(document.getElementById('lobby-spies').value);
@@ -195,10 +206,10 @@ socket.on('run_rejoin_logic', () => {
 socket.on('rejoin_success', (data) => {
     // data = { roomCode, gameDetails }
     console.log('Rejoined successfully!', data);
-    enterLobby({ 
-        roomCode: data.roomCode, 
+    enterLobby({
+        roomCode: data.roomCode,
         isHost: data.gameDetails.players.find(p => p.id === data.gameDetails.players[0].id).isHost, // Assuming ordered, but we need check by ID logic really.
-        players: data.gameDetails.players 
+        players: data.gameDetails.players
     });
 
     // Determine current screen based on status
@@ -206,23 +217,23 @@ socket.on('rejoin_success', (data) => {
         const myRole = data.gameDetails.myRole;
         if (myRole) {
             // Restore role info
-           const roleElem = document.getElementById('role-display');
-           const catElem = document.getElementById('category-display');
+            const roleElem = document.getElementById('role-display');
+            const catElem = document.getElementById('category-display');
 
-           if (myRole === 'spy') {
-               roleElem.innerText = 'ESPÍA';
-               roleElem.className = 'role-text impostor-text';
-               catElem.innerText = 'Descubre la palabra';
-           } else {
-               roleElem.innerText = data.gameDetails.myWord;
-               roleElem.className = 'role-text citizen-text';
-               catElem.innerText = `Categoría: ${data.gameDetails.category}`;
-           }
+            if (myRole === 'spy') {
+                roleElem.innerText = 'ESPÍA';
+                roleElem.className = 'role-text impostor-text';
+                catElem.innerText = 'Descubre la palabra';
+            } else {
+                roleElem.innerText = data.gameDetails.myWord;
+                roleElem.className = 'role-text citizen-text';
+                catElem.innerText = `Categoría: ${data.gameDetails.category}`;
+            }
         }
         showScreen('game');
     } else if (data.gameDetails.status === 'finished') {
         // Can't easily restore full result state without more data, but show lobby or wait
-        showScreen('results'); 
+        showScreen('results');
     }
 });
 
@@ -247,9 +258,9 @@ function showDisconnectAlert(userId, name, timeoutMs) {
     const alert = document.createElement('div');
     alert.id = id;
     alert.className = 'disconnect-alert';
-    
+
     let secondsLeft = Math.ceil(timeoutMs / 1000);
-    
+
     alert.innerHTML = `
         <div style="font-size: 2rem;">⚠️</div>
         <div>
@@ -272,7 +283,7 @@ function showDisconnectAlert(userId, name, timeoutMs) {
             removeDisconnectAlert(userId);
         }
     }, 1000);
-    
+
     // Store interval to clear it if removed early
     alert.dataset.interval = interval;
 }
@@ -297,8 +308,8 @@ function formatTime(s) {
 function startLocalTimer(seconds) {
     const timerEl = document.getElementById('timer');
     // Clear prev interval if any (global var would be better but this is quick fix)
-    if(window.gameTimer) clearInterval(window.gameTimer);
-    
+    if (window.gameTimer) clearInterval(window.gameTimer);
+
     let rem = seconds;
     window.gameTimer = setInterval(() => {
         rem--;

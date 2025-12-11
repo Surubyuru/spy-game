@@ -76,7 +76,7 @@ io.on('connection', (socket) => {
 
         const { roomCode, userId } = sessions[sessionId];
         const room = rooms[roomCode];
-        
+
         if (!room) {
             delete sessions[sessionId];
             socket.emit('rejoin_failed');
@@ -118,7 +118,7 @@ io.on('connection', (socket) => {
             // Notificar a otros que volvió de entre los muertos
             io.to(roomCode).emit('player_reconnected', { userId: player.id });
         } else {
-             socket.emit('rejoin_failed');
+            socket.emit('rejoin_failed');
         }
     });
 
@@ -126,27 +126,27 @@ io.on('connection', (socket) => {
         const roomCode = generateRoomCode();
         const userId = generateId();
         const sessionId = generateId();
-        
+
         sessions[sessionId] = { roomCode, userId };
 
         rooms[roomCode] = {
-            players: [{ 
-                id: userId, 
-                socketId: socket.id, 
-                name: playerName, 
+            players: [{
+                id: userId,
+                socketId: socket.id,
+                name: playerName,
                 isHost: true,
-                connected: true 
+                connected: true
             }],
             status: 'lobby',
             settings: { spies: 1, time: 300 }
         };
         socket.join(roomCode);
-        socket.emit('room_created', { 
-            roomCode, 
-            isHost: true, 
+        socket.emit('room_created', {
+            roomCode,
+            isHost: true,
             players: rooms[roomCode].players,
             sessionId,
-            userId 
+            userId
         });
     });
 
@@ -159,10 +159,10 @@ io.on('connection', (socket) => {
             const sessionId = generateId();
             sessions[sessionId] = { roomCode, userId };
 
-            const newPlayer = { 
-                id: userId, 
+            const newPlayer = {
+                id: userId,
                 socketId: socket.id,
-                name: playerName, 
+                name: playerName,
                 isHost: false,
                 connected: true
             };
@@ -171,9 +171,9 @@ io.on('connection', (socket) => {
             socket.join(roomCode);
 
             // Send session info ONLY to this socket
-            socket.emit('joined_room', { 
-                roomCode, 
-                isHost: false, 
+            socket.emit('joined_room', {
+                roomCode,
+                isHost: false,
                 players: room.players,
                 sessionId,
                 userId
@@ -255,7 +255,7 @@ io.on('connection', (socket) => {
     socket.on('play_again', ({ roomCode }) => {
         const room = rooms[roomCode];
         if (room && room.status === 'finished') {
-            const player = room.players.find(p => p.id === socket.id);
+            const player = room.players.find(p => p.socketId === socket.id); // Correct check
             if (!player || !player.isHost) return;
 
             room.status = 'lobby';
@@ -264,21 +264,56 @@ io.on('connection', (socket) => {
         }
     });
 
+    socket.on('leave_game', ({ roomCode }) => {
+        const room = rooms[roomCode];
+        if (room) {
+            // Find player by socketId
+            const player = room.players.find(p => p.socketId === socket.id);
+            if (player) {
+                // Remove immediately, no grace period
+                if (player.disconnectTimeout) clearTimeout(player.disconnectTimeout);
+
+                const idx = room.players.indexOf(player);
+                room.players.splice(idx, 1);
+
+                io.to(roomCode).emit('update_players', room.players);
+                io.to(roomCode).emit('player_left', { userId: player.id });
+
+                if (room.players.length === 0) {
+                    delete rooms[roomCode];
+                    // Clean sessions
+                    for (const sid in sessions) {
+                        if (sessions[sid].roomCode === roomCode) delete sessions[sid];
+                    }
+                } else if (player.isHost) {
+                    // Reassign host if needed (though usually we pick first remaining)
+                    const activeP = room.players.find(p => p.connected);
+                    if (activeP) {
+                        activeP.isHost = true; // Assign to first active
+                        room.players[0] = activeP; // Move to front? No, just flag.
+                        // Actually just flag is enough, update_players will notify
+                    }
+                    io.to(roomCode).emit('update_players', room.players);
+                }
+            }
+        }
+    });
+
     socket.on('disconnect', () => {
         for (const code in rooms) {
             const room = rooms[code];
             // Find player by socketId (stored in `socketId` prop now)
             const player = room.players.find(p => p.socketId === socket.id);
-            
+
             if (player) {
                 console.log(`Player ${player.name} disconnected. Starting grace period.`);
                 player.connected = false;
 
                 // Notify others to show the timer UI
-                io.to(code).emit('player_disconnected_wait', { 
-                    userId: player.id, 
-                    name: player.name, 
-                    timeout: RECONNECT_WINDOW 
+                io.to(code).emit('player_disconnected_wait', {
+                    userId: player.id,
+                    name: player.name,
+                    timeout: RECONNECT_WINDOW
                 });
 
                 // Start destruction timer
@@ -287,7 +322,7 @@ io.on('connection', (socket) => {
                     if (room.players.includes(player)) {
                         const idx = room.players.indexOf(player);
                         room.players.splice(idx, 1);
-                        
+
                         // Notify removal
                         io.to(code).emit('update_players', room.players);
                         io.to(code).emit('player_left', { userId: player.id });
@@ -298,10 +333,10 @@ io.on('connection', (socket) => {
                         if (activePlayers.length === 0) {
                             console.log(`Room ${code} empty. Deleting.`);
                             delete rooms[code];
-                            
+
                             // Cleanup sessions
-                            for(const sid in sessions) {
-                                if(sessions[sid].roomCode === code) delete sessions[sid];
+                            for (const sid in sessions) {
+                                if (sessions[sid].roomCode === code) delete sessions[sid];
                             }
                         } else {
                             // If host left, assign new host
