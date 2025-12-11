@@ -52,23 +52,102 @@ initDB();
 // --- GAME STATE MANAGEMENT ---
 const rooms = {};
 
+const sessions = {}; // sessionId -> { roomCode, userId }
+const RECONNECT_WINDOW = 120000; // 2 minutos
+
 function generateRoomCode() {
     return Math.random().toString(36).substring(2, 6).toUpperCase();
+}
+
+function generateId() {
+    return Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
 }
 
 // --- SOCKET.IO LOGIC ---
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
 
+    // Intentar reconexión rápida
+    socket.on('rejoin_request', ({ sessionId }) => {
+        if (!sessions[sessionId]) {
+            socket.emit('rejoin_failed');
+            return;
+        }
+
+        const { roomCode, userId } = sessions[sessionId];
+        const room = rooms[roomCode];
+        
+        if (!room) {
+            delete sessions[sessionId];
+            socket.emit('rejoin_failed');
+            return;
+        }
+
+        const player = room.players.find(p => p.id === userId);
+        if (player) {
+            // Cancelar timeout de destrucción si existe
+            if (player.disconnectTimeout) {
+                clearTimeout(player.disconnectTimeout);
+                player.disconnectTimeout = null;
+            }
+
+            // Actualizar socket
+            player.socketId = socket.id; // Guardamos la nueva referencia
+            player.connected = true;
+            socket.join(roomCode);
+
+            // Restaurar estado al cliente
+            socket.emit('rejoin_success', {
+                roomCode,
+                gameDetails: {
+                    status: room.status,
+                    players: room.players.map(p => ({
+                        id: p.id, // userId
+                        name: p.name,
+                        isHost: p.isHost,
+                        connected: p.connected,
+                        // No enviamos roles a todos, pero al propio usuario sí si está jugando
+                    })),
+                    myRole: player.role,
+                    myWord: player.word,
+                    category: room.category,
+                    time: room.settings ? room.settings.time : 0
+                }
+            });
+
+            // Notificar a otros que volvió de entre los muertos
+            io.to(roomCode).emit('player_reconnected', { userId: player.id });
+        } else {
+             socket.emit('rejoin_failed');
+        }
+    });
+
     socket.on('create_room', ({ playerName }) => {
         const roomCode = generateRoomCode();
+        const userId = generateId();
+        const sessionId = generateId();
+        
+        sessions[sessionId] = { roomCode, userId };
+
         rooms[roomCode] = {
-            players: [{ id: socket.id, name: playerName, isHost: true }],
+            players: [{ 
+                id: userId, 
+                socketId: socket.id, 
+                name: playerName, 
+                isHost: true,
+                connected: true 
+            }],
             status: 'lobby',
             settings: { spies: 1, time: 300 }
         };
         socket.join(roomCode);
-        socket.emit('room_created', { roomCode, isHost: true, players: rooms[roomCode].players });
+        socket.emit('room_created', { 
+            roomCode, 
+            isHost: true, 
+            players: rooms[roomCode].players,
+            sessionId,
+            userId 
+        });
     });
 
     socket.on('join_room', ({ roomCode, playerName }) => {
@@ -76,10 +155,29 @@ io.on('connection', (socket) => {
         const room = rooms[roomCode];
 
         if (room && room.status === 'lobby') {
-            room.players.push({ id: socket.id, name: playerName, isHost: false });
+            const userId = generateId();
+            const sessionId = generateId();
+            sessions[sessionId] = { roomCode, userId };
+
+            const newPlayer = { 
+                id: userId, 
+                socketId: socket.id,
+                name: playerName, 
+                isHost: false,
+                connected: true
+            };
+
+            room.players.push(newPlayer);
             socket.join(roomCode);
 
-            socket.emit('joined_room', { roomCode, isHost: false, players: room.players });
+            // Send session info ONLY to this socket
+            socket.emit('joined_room', { 
+                roomCode, 
+                isHost: false, 
+                players: room.players,
+                sessionId,
+                userId
+            });
             io.to(roomCode).emit('update_players', room.players);
         } else {
             socket.emit('error_message', 'Sala no encontrada o juego ya iniciado.');
@@ -117,12 +215,14 @@ io.on('connection', (socket) => {
                 player.role = roles[index];
                 player.word = player.role === 'citizen' ? room.secretWord : '???';
 
-                io.to(player.id).emit('game_started', {
-                    role: player.role,
-                    word: player.word,
-                    category: room.category,
-                    time: settings.time
-                });
+                if (player.connected && player.socketId) {
+                    io.to(player.socketId).emit('game_started', {
+                        role: player.role,
+                        word: player.word,
+                        category: room.category,
+                        time: settings.time
+                    });
+                }
             });
 
             io.to(roomCode).emit('start_timer', settings.time);
@@ -152,14 +252,66 @@ io.on('connection', (socket) => {
         }
     });
 
+    socket.on('play_again', ({ roomCode }) => {
+        const room = rooms[roomCode];
+        if (room && room.status === 'finished') {
+            const player = room.players.find(p => p.id === socket.id);
+            if (!player || !player.isHost) return;
+
+            room.status = 'lobby';
+            io.to(roomCode).emit('back_to_lobby');
+            io.to(roomCode).emit('update_players', room.players);
+        }
+    });
+
     socket.on('disconnect', () => {
         for (const code in rooms) {
             const room = rooms[code];
-            const playerIdx = room.players.findIndex(p => p.id === socket.id);
-            if (playerIdx !== -1) {
-                room.players.splice(playerIdx, 1);
-                io.to(code).emit('update_players', room.players);
-                if (room.players.length === 0) delete rooms[code];
+            // Find player by socketId (stored in `socketId` prop now)
+            const player = room.players.find(p => p.socketId === socket.id);
+            
+            if (player) {
+                console.log(`Player ${player.name} disconnected. Starting grace period.`);
+                player.connected = false;
+
+                // Notify others to show the timer UI
+                io.to(code).emit('player_disconnected_wait', { 
+                    userId: player.id, 
+                    name: player.name, 
+                    timeout: RECONNECT_WINDOW 
+                });
+
+                // Start destruction timer
+                player.disconnectTimeout = setTimeout(() => {
+                    console.log(`Player ${player.name} timed out. Removing.`);
+                    if (room.players.includes(player)) {
+                        const idx = room.players.indexOf(player);
+                        room.players.splice(idx, 1);
+                        
+                        // Notify removal
+                        io.to(code).emit('update_players', room.players);
+                        io.to(code).emit('player_left', { userId: player.id });
+
+                        // If room empty or only disconnected players left?
+                        // "si no hay nadie se cierra"
+                        const activePlayers = room.players.filter(p => p.connected);
+                        if (activePlayers.length === 0) {
+                            console.log(`Room ${code} empty. Deleting.`);
+                            delete rooms[code];
+                            
+                            // Cleanup sessions
+                            for(const sid in sessions) {
+                                if(sessions[sid].roomCode === code) delete sessions[sid];
+                            }
+                        } else {
+                            // If host left, assign new host
+                            if (player.isHost && room.players.length > 0) {
+                                room.players[0].isHost = true;
+                                io.to(code).emit('update_players', room.players);
+                            }
+                        }
+                    }
+                }, RECONNECT_WINDOW);
                 break;
             }
         }

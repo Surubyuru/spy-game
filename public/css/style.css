@@ -248,6 +248,46 @@ input:focus {
     margin-top: 2rem;
 }
 
+/* --- DISCONNECTION ALERTS --- */
+.disconnect-alert {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(10px);
+    border: 2px solid #ff4444;
+    padding: 1rem;
+    border-radius: 12px;
+    color: white;
+    z-index: 1000;
+    box-shadow: 0 4px 15px rgba(255, 68, 68, 0.3);
+    animation: slideIn 0.3s ease-out;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    min-width: 250px;
+}
+
+.disconnect-alert.fading {
+    animation: fadeOut 0.5s forwards;
+}
+
+.disconnect-timer {
+    font-weight: bold;
+    color: #ff4444;
+    font-family: monospace;
+    font-size: 1.2rem;
+}
+
+@keyframes slideIn {
+    from { transform: translateY(100%); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes fadeOut {
+    to { opacity: 0; transform: scale(0.9); }
+}
+
 .word-chip {
     background: rgba(255, 255, 255, 0.03);
     padding: 0.8rem;
