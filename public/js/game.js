@@ -324,9 +324,18 @@ function renderVotingList(players) {
     });
 }
 
-let secondsLeft = Math.ceil(timeoutMs / 1000);
+// UI Helpers for Alerts
+function showDisconnectAlert(userId, name, timeoutMs) {
+    const id = `alert-${userId}`;
+    if (document.getElementById(id)) return;
 
-alert.innerHTML = `
+    const alert = document.createElement('div');
+    alert.id = id;
+    alert.className = 'disconnect-alert';
+
+    let secondsLeft = Math.ceil(timeoutMs / 1000);
+
+    alert.innerHTML = `
         <div style="font-size: 2rem;">⚠️</div>
         <div>
             <div style="font-weight: bold; margin-bottom: 0.2rem;">${name} desconectado</div>
@@ -335,22 +344,22 @@ alert.innerHTML = `
         <div class="disconnect-timer" id="timer-${id}">${formatTime(secondsLeft)}</div>
     `;
 
-document.body.appendChild(alert);
+    document.body.appendChild(alert);
 
-// Timer logic
-const interval = setInterval(() => {
-    secondsLeft--;
-    const tEl = document.getElementById(`timer-${id}`);
-    if (tEl) tEl.innerText = formatTime(secondsLeft);
+    // Timer logic
+    const interval = setInterval(() => {
+        secondsLeft--;
+        const tEl = document.getElementById(`timer-${id}`);
+        if (tEl) tEl.innerText = formatTime(secondsLeft);
 
-    if (secondsLeft <= 0) {
-        clearInterval(interval);
-        removeDisconnectAlert(userId);
-    }
-}, 1000);
+        if (secondsLeft <= 0) {
+            clearInterval(interval);
+            removeDisconnectAlert(userId);
+        }
+    }, 1000);
 
-// Store interval to clear it if removed early
-alert.dataset.interval = interval;
+    // Store interval to clear it if removed early
+    alert.dataset.interval = interval;
 }
 
 function removeDisconnectAlert(userId) {
