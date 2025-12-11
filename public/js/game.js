@@ -281,15 +281,8 @@ socket.on('player_left', ({ userId }) => {
 });
 
 
-// UI Helpers for Alerts
-function showDisconnectAlert(userId, name, timeoutMs) {
-    const id = `alert-${userId}`;
-    if (document.getElementById(id)) return;
+// Helper for voting list
 
-    const alert = document.createElement('div');
-    alert.id = id;
-    alert.className = 'disconnect-alert';
-}
 
 function renderVotingList(players) {
     const container = document.getElementById('voting-players-container');
