@@ -6,12 +6,14 @@ const screens = {
     lobby: document.getElementById('screen-lobby'),
     reveal: document.getElementById('screen-reveal'),
     game: document.getElementById('screen-game'),
+    voting: document.getElementById('screen-voting'),
     results: document.getElementById('screen-results')
 };
 
 // State
 let myRoomCode = null;
 let amIHost = false;
+let myUserId = null; // Store for self-vote check
 
 // --- HOME LOGIC ---
 
@@ -75,8 +77,31 @@ socket.on('start_timer', (duration) => {
     }, 5000); // Dar 5 segundos para leer la carta
 });
 
+socket.on('voting_started', ({ players }) => {
+    showScreen('voting');
+
+    // Determine my ID to prevent self-voting (hacky way via localStorage)
+    // Better way: Server sent 'userId' in joined_room. Only available in scope if stored globally?
+    // We saved session, but we need current user ID in memory.
+    // Actually, let's grab it from session storage or check against name (risky).
+    // Let's assume we can reconstruct it or simply just block visually by name for now, 
+    // or better: The server prevents it, so visual cue is enough. 
+    // We used `enterLobby` data. 
+    // Let's store myId in a variable in `enterLobby`
+
+    renderVotingList(players);
+});
+
+socket.on('vote_confirmed', () => {
+    document.getElementById('voting-status').classList.remove('hidden');
+    const container = document.getElementById('voting-players-container');
+    // Disable all buttons
+    const btns = container.querySelectorAll('button');
+    btns.forEach(b => b.disabled = true);
+});
+
 socket.on('game_reveal', (data) => {
-    // data = { word, category, players }
+    // data = { word, category, players, votes }
     showScreen('results');
     document.getElementById('result-word').innerText = data.word;
 
@@ -86,10 +111,15 @@ socket.on('game_reveal', (data) => {
     data.players.forEach(p => {
         const div = document.createElement('div');
         const isSpy = p.role === 'spy';
+        const votesReceived = (data.votes && data.votes[p.id]) || 0;
+
         div.className = `word-chip ${isSpy ? 'reveal-spy' : 'reveal-citizen'}`;
         div.innerHTML = `
             <strong>${p.name}</strong>
-            <span>${isSpy ? '🕵️ ESPÍA' : 'AGENT'}</span>
+            <div style="display:flex; justify-content:space-between; width:100%; align-items:center; margin-top:0.5rem">
+                <span>${isSpy ? '🕵️ ESPÍA' : 'AGENT'}</span>
+                ${votesReceived > 0 ? `<span class="badge" style="background:orange; padding:2px 6px; border-radius:4px; font-size:0.8rem">🗳️ ${votesReceived}</span>` : ''}
+            </div>
         `;
         list.appendChild(div);
     });
@@ -110,6 +140,7 @@ socket.on('back_to_lobby', () => {
 function enterLobby(data) {
     myRoomCode = data.roomCode;
     amIHost = data.isHost;
+    if (data.userId) myUserId = data.userId; // Capture ID
 
     document.getElementById('lobby-code').innerText = myRoomCode;
     renderLobbyPlayers(data.players);
@@ -161,8 +192,8 @@ document.getElementById('btn-start-game').addEventListener('click', () => {
 });
 
 document.getElementById('btn-reveal-game').addEventListener('click', () => {
-    if (confirm('¿Terminar partida y revelar roles?')) {
-        socket.emit('reveal_game', { roomCode: myRoomCode });
+    if (confirm('¿Terminar debate y pasar a votación?')) {
+        socket.emit('start_voting', { roomCode: myRoomCode });
     }
 });
 
@@ -258,10 +289,44 @@ function showDisconnectAlert(userId, name, timeoutMs) {
     const alert = document.createElement('div');
     alert.id = id;
     alert.className = 'disconnect-alert';
+}
 
-    let secondsLeft = Math.ceil(timeoutMs / 1000);
+function renderVotingList(players) {
+    const container = document.getElementById('voting-players-container');
+    container.innerHTML = '';
 
-    alert.innerHTML = `
+    // Reset status
+    document.getElementById('voting-status').classList.add('hidden');
+
+    players.forEach(p => {
+        const btn = document.createElement('button');
+        btn.className = 'vote-btn';
+        btn.innerHTML = `<span>${p.name}</span> <span>👉</span>`;
+
+        if (p.id === myUserId) {
+            btn.disabled = true;
+            btn.style.opacity = '0.3';
+            btn.innerHTML = `<span>${p.name} (Tú)</span> <span>🚫</span>`;
+        }
+
+        btn.onclick = () => {
+            // Visual selection
+            const all = container.querySelectorAll('.vote-btn');
+            all.forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+
+            if (confirm(`¿Votar a ${p.name}? No se puede cambiar.`)) {
+                socket.emit('cast_vote', { roomCode: myRoomCode, targetId: p.id });
+            }
+        };
+
+        container.appendChild(btn);
+    });
+}
+
+let secondsLeft = Math.ceil(timeoutMs / 1000);
+
+alert.innerHTML = `
         <div style="font-size: 2rem;">⚠️</div>
         <div>
             <div style="font-weight: bold; margin-bottom: 0.2rem;">${name} desconectado</div>
@@ -270,22 +335,22 @@ function showDisconnectAlert(userId, name, timeoutMs) {
         <div class="disconnect-timer" id="timer-${id}">${formatTime(secondsLeft)}</div>
     `;
 
-    document.body.appendChild(alert);
+document.body.appendChild(alert);
 
-    // Timer logic
-    const interval = setInterval(() => {
-        secondsLeft--;
-        const tEl = document.getElementById(`timer-${id}`);
-        if (tEl) tEl.innerText = formatTime(secondsLeft);
+// Timer logic
+const interval = setInterval(() => {
+    secondsLeft--;
+    const tEl = document.getElementById(`timer-${id}`);
+    if (tEl) tEl.innerText = formatTime(secondsLeft);
 
-        if (secondsLeft <= 0) {
-            clearInterval(interval);
-            removeDisconnectAlert(userId);
-        }
-    }, 1000);
+    if (secondsLeft <= 0) {
+        clearInterval(interval);
+        removeDisconnectAlert(userId);
+    }
+}, 1000);
 
-    // Store interval to clear it if removed early
-    alert.dataset.interval = interval;
+// Store interval to clear it if removed early
+alert.dataset.interval = interval;
 }
 
 function removeDisconnectAlert(userId) {

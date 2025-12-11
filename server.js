@@ -240,17 +240,77 @@ io.on('connection', (socket) => {
         socket.to(roomCode).emit('update_timer', time);
     });
 
-    socket.on('reveal_game', ({ roomCode }) => {
+    socket.on('start_voting', ({ roomCode }) => {
         const room = rooms[roomCode];
         if (room) {
-            io.to(roomCode).emit('game_reveal', {
-                word: room.secretWord,
-                category: room.category,
-                players: room.players
+            room.status = 'voting';
+            room.votes = {}; // voterId -> targetId
+            // Initialize empty votes for connected players
+            room.players.forEach(p => {
+                if (p.connected) room.votes[p.id] = null;
             });
-            room.status = 'finished';
+
+            io.to(roomCode).emit('voting_started', {
+                players: room.players.filter(p => p.connected).map(p => ({
+                    id: p.id,
+                    name: p.name
+                }))
+            });
         }
     });
+
+    socket.on('cast_vote', ({ roomCode, targetId }) => {
+        const room = rooms[roomCode];
+        if (room && room.status === 'voting') {
+            // Find voter by socketId
+            const voter = room.players.find(p => p.socketId === socket.id);
+            if (!voter) return;
+
+            // Record vote
+            if (targetId !== voter.id) { // Self-vote check (server side too)
+                room.votes[voter.id] = targetId;
+
+                // Acknowledge vote
+                socket.emit('vote_confirmed');
+
+                // Check if all connected players voted
+                const connectedPlayers = room.players.filter(p => p.connected);
+                const allVoted = connectedPlayers.every(p => room.votes[p.id] !== null && room.votes[p.id] !== undefined);
+
+                if (allVoted) {
+                    finishGameWithVotes(roomCode);
+                }
+            }
+        }
+    });
+
+    // Helper to finish game
+    function finishGameWithVotes(roomCode) {
+        const room = rooms[roomCode];
+        if (!room) return;
+
+        // Calculate vote counts
+        const voteCounts = {};
+        Object.values(room.votes).forEach(targetId => {
+            if (targetId) voteCounts[targetId] = (voteCounts[targetId] || 0) + 1;
+        });
+
+        io.to(roomCode).emit('game_reveal', {
+            word: room.secretWord,
+            category: room.category,
+            players: room.players,
+            votes: voteCounts
+        });
+        room.status = 'finished';
+    }
+
+    // LEGACY / DIRECT REVEAL (Still kept but maybe unused if flow changes)
+    /* 
+    socket.on('reveal_game', ... ) handler removed/replaced by finishGameWithVotes calls logic 
+    but we keep the event just in case host wants to FORCE end without voting? 
+    Actually, let's make reveal_game trigger the voting phase now as per request.
+    */
+
 
     socket.on('play_again', ({ roomCode }) => {
         const room = rooms[roomCode];

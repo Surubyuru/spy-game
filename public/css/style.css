@@ -272,6 +272,39 @@ input:focus {
     animation: fadeOut 0.5s forwards;
 }
 
+/* --- VOTING --- */
+.vote-btn {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    padding: 1rem;
+    border-radius: 8px;
+    width: 100%;
+    margin-bottom: 0.5rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: left;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.vote-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: translateY(-2px);
+}
+
+.vote-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.vote-btn.selected {
+    border-color: #4cd137;
+    background: rgba(76, 209, 55, 0.2);
+}
+
 .disconnect-timer {
     font-weight: bold;
     color: #ff4444;
@@ -280,12 +313,22 @@ input:focus {
 }
 
 @keyframes slideIn {
-    from { transform: translateY(100%); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
+    from {
+        transform: translateY(100%);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
 }
 
 @keyframes fadeOut {
-    to { opacity: 0; transform: scale(0.9); }
+    to {
+        opacity: 0;
+        transform: scale(0.9);
+    }
 }
 
 .word-chip {
