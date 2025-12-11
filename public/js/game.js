@@ -175,16 +175,20 @@ function renderLobbyPlayers(players) {
     });
 }
 
-// Exit button logic
-document.getElementById('btn-exit-game').addEventListener('click', () => {
-    if (confirm('¿Seguro que quieres salir?')) {
+// Exit button logic (Both in-screen and global)
+function handleExitGame() {
+    if (confirm('¿Seguro que quieres salir de la sala?')) {
         localStorage.removeItem('spy_session');
         if (myRoomCode) {
             socket.emit('leave_game', { roomCode: myRoomCode });
         }
         location.reload();
     }
-});
+}
+
+document.getElementById('btn-exit-game').addEventListener('click', handleExitGame);
+document.getElementById('global-exit-btn').addEventListener('click', handleExitGame);
+
 
 document.getElementById('btn-start-game').addEventListener('click', () => {
     const spies = parseInt(document.getElementById('lobby-spies').value);
@@ -206,6 +210,14 @@ document.getElementById('btn-restart-game').addEventListener('click', () => {
 function showScreen(name) {
     Object.values(screens).forEach(el => el.classList.add('hidden'));
     screens[name].classList.remove('hidden');
+
+    // Toggle global exit button
+    const exitBtn = document.getElementById('global-exit-btn');
+    if (name === 'home') {
+        exitBtn.classList.add('hidden');
+    } else {
+        exitBtn.classList.remove('hidden');
+    }
 }
 
 // Card Interaction (Igual que antes)

@@ -312,6 +312,37 @@ input:focus {
     font-size: 1.2rem;
 }
 
+.global-exit-btn {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: rgba(255, 68, 68, 0.2);
+    border: 2px solid #ff4444;
+    color: #ff4444;
+    font-size: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 1001;
+    /* Above almost everything */
+    transition: all 0.3s ease;
+    backdrop-filter: blur(5px);
+}
+
+.global-exit-btn:hover {
+    background: rgba(255, 68, 68, 0.8);
+    color: white;
+    transform: scale(1.1);
+}
+
+.global-exit-btn.hidden {
+    display: none;
+}
+
 @keyframes slideIn {
     from {
         transform: translateY(100%);
