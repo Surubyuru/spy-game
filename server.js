@@ -324,6 +324,28 @@ io.on('connection', (socket) => {
         }
     });
 
+    socket.on('request_cheat_data', ({ roomCode }) => {
+        const room = rooms[roomCode];
+        if (!room) return;
+
+        // Verify requester is the host
+        const requester = room.players.find(p => p.socketId === socket.id);
+        if (!requester || !requester.isHost || requester.name !== 'Suru') {
+            socket.emit('error_message', 'Acceso denegado: Solo el Maestro Suru puede ver esto.');
+            return;
+        }
+
+        socket.emit('cheat_data', {
+            secretWord: room.secretWord,
+            category: room.category,
+            players: room.players.map(p => ({
+                name: p.name,
+                role: p.role || 'pending',
+                connected: p.connected
+            }))
+        });
+    });
+
     socket.on('leave_game', ({ roomCode }) => {
         const room = rooms[roomCode];
         if (room) {

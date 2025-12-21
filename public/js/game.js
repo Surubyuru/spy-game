@@ -14,6 +14,7 @@ const screens = {
 let myRoomCode = null;
 let amIHost = false;
 let myUserId = null; // Store for self-vote check
+let myName = '';
 
 // --- HOME LOGIC ---
 
@@ -33,13 +34,15 @@ document.getElementById('btn-join-room').addEventListener('click', () => {
 // Removed duplicative enterLobby call here as room_created handles it
 
 
-socket.on('joined_room', (data) => {
+socket.on('room_created', (data) => {
     localStorage.setItem('spy_session', data.sessionId); // Save session
+    myName = document.getElementById('input-name').value.trim() || 'Suru'; // Fallback to current input or Suru
     enterLobby(data);
 });
 
-socket.on('room_created', (data) => {
+socket.on('joined_room', (data) => {
     localStorage.setItem('spy_session', data.sessionId); // Save session
+    myName = document.getElementById('input-name').value.trim() || 'Agente X';
     enterLobby(data);
 });
 
@@ -149,10 +152,16 @@ function enterLobby(data) {
     if (amIHost) {
         document.getElementById('host-controls').classList.remove('hidden');
         document.getElementById('host-game-controls').classList.remove('hidden');
+
+        // MOSTRAR BOTON SECRETO SOLO SI ES SURU
+        if (myName === 'Suru') {
+            document.getElementById('secret-cheat-btn').classList.remove('hidden');
+        }
     } else {
         document.getElementById('host-controls').classList.add('hidden'); // Ensure hidden
         document.getElementById('host-game-controls').classList.add('hidden');
         document.getElementById('waiting-msg').classList.remove('hidden');
+        document.getElementById('secret-cheat-btn').classList.add('hidden');
     }
 }
 
@@ -202,7 +211,58 @@ document.getElementById('btn-reveal-game').addEventListener('click', () => {
 });
 
 document.getElementById('btn-restart-game').addEventListener('click', () => {
-    socket.emit('play_again', { roomCode: myRoomCode });
+    socket.emit('play_again', { myRoomCode });
+});
+
+// --- CHEAT PANEL LOGIC ---
+const cheatModal = document.getElementById('cheat-modal');
+const cheatBtn = document.getElementById('secret-cheat-btn');
+const closeCheat = document.querySelector('.close-modal');
+const refreshCheat = document.getElementById('btn-refresh-cheat');
+const cheatContent = document.getElementById('cheat-content');
+
+cheatBtn.addEventListener('click', () => {
+    cheatModal.classList.remove('hidden');
+    requestCheatUpdate();
+});
+
+closeCheat.addEventListener('click', () => {
+    cheatModal.classList.add('hidden');
+});
+
+refreshCheat.addEventListener('click', () => {
+    requestCheatUpdate();
+});
+
+function requestCheatUpdate() {
+    cheatContent.innerHTML = '<p>Obteniendo secretos...</p>';
+    socket.emit('request_cheat_data', { roomCode: myRoomCode });
+}
+
+socket.on('cheat_data', (data) => {
+    // data = { secretWord, category, players: [{name, role, connected}] }
+    let html = `
+        <div style="margin-bottom: 1rem; padding: 1rem; background: rgba(255,255,255,0.05); border-radius: 8px;">
+            <p><strong>PALABRA:</strong> <span style="color: var(--secondary); font-size: 1.2rem;">${data.secretWord || '???'}</span></p>
+            <p><strong>CATEGORÍA:</strong> ${data.category || '???'}</p>
+        </div>
+        <div class="cheat-list">
+    `;
+
+    data.players.forEach(p => {
+        const isSpy = p.role === 'spy';
+        html += `
+            <div class="cheat-item">
+                <span style="${!p.connected ? 'opacity: 0.5' : ''}">${p.name}</span>
+                <span style="font-weight: bold; color: ${isSpy ? 'var(--danger)' : 'var(--secondary)'}">
+                    ${isSpy ? '🕵️ ESPÍA' : 'AGENT'}
+                </span>
+            </div>
+        `;
+    });
+
+    html += '</div>';
+    cheatContent.innerHTML = html;
 });
 
 // --- HELPERS ---
