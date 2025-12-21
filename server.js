@@ -99,14 +99,15 @@ io.on('connection', (socket) => {
             // Restaurar estado al cliente
             socket.emit('rejoin_success', {
                 roomCode,
+                userId: player.id,
+                playerName: player.name,
                 gameDetails: {
                     status: room.status,
                     players: room.players.map(p => ({
-                        id: p.id, // userId
+                        id: p.id,
                         name: p.name,
                         isHost: p.isHost,
                         connected: p.connected,
-                        // No enviamos roles a todos, pero al propio usuario sí si está jugando
                     })),
                     myRole: player.role,
                     myWord: player.word,
@@ -185,8 +186,12 @@ io.on('connection', (socket) => {
     });
 
     socket.on('start_game', async ({ roomCode, settings }) => {
+        console.log(`🚀 Intentando iniciar juego en sala: ${roomCode}`);
         const room = rooms[roomCode];
-        if (!room) return;
+        if (!room) {
+            console.error(`❌ Sala ${roomCode} no encontrada.`);
+            return;
+        }
 
         room.status = 'playing';
         room.settings = settings;

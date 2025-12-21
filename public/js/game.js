@@ -200,7 +200,14 @@ document.getElementById('global-exit-btn').addEventListener('click', handleExitG
 
 
 document.getElementById('btn-start-game').addEventListener('click', () => {
+    console.log('Boton Iniciar Misión clicado');
     const spies = parseInt(document.getElementById('lobby-spies').value);
+    console.log(`Configuración: Sala=${myRoomCode}, Espías=${spies}`);
+    if (!myRoomCode) {
+        console.error('Error: myRoomCode es null');
+        alert('Error: No se encontró el código de la sala.');
+        return;
+    }
     socket.emit('start_game', { roomCode: myRoomCode, settings: { spies, time: 300 } });
 });
 
@@ -307,11 +314,17 @@ socket.on('run_rejoin_logic', () => {
 });
 
 socket.on('rejoin_success', (data) => {
-    // data = { roomCode, gameDetails }
+    // data = { roomCode, userId, playerName, gameDetails }
     console.log('Rejoined successfully!', data);
+    myUserId = data.userId;
+    myName = data.playerName;
+
+    // El host es el que tiene isHost: true en la lista de jugadores que coincida con miUserId
+    const me = data.gameDetails.players.find(p => p.id === myUserId);
+
     enterLobby({
         roomCode: data.roomCode,
-        isHost: data.gameDetails.players.find(p => p.id === data.gameDetails.players[0].id).isHost, // Assuming ordered, but we need check by ID logic really.
+        isHost: me ? me.isHost : false,
         players: data.gameDetails.players
     });
 
