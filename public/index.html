@@ -114,23 +114,26 @@
         <div id="result-players" class="word-list"></div>
         <button id="btn-restart-game" class="btn hidden" style="margin-top: 1rem; width: 100%;">JUGAR OTRA VEZ
             (LOBBY)</button>
-        <!-- CHEAT PANEL MODAL -->
-        <div id="cheat-modal" class="modal hidden">
-            <div class="modal-content glass-panel">
-                <span class="close-modal">&times;</span>
-                <h2 style="color: var(--accent);">Panel de Control Maestro</h2>
-                <div id="cheat-content">
-                    <p>Cargando datos de inteligencia...</p>
-                </div>
-                <button id="btn-refresh-cheat" class="btn btn-secondary"
-                    style="width: 100%; margin-top: 1rem;">ACTUALIZAR DATOS</button>
+        <button id="btn-exit-game" class="btn btn-secondary" style="margin-top: 1rem;">SALIR</button>
+    </main>
+
+    <!-- CHEAT PANEL MODAL -->
+    <div id="cheat-modal" class="modal hidden">
+        <div class="modal-content glass-panel">
+            <span class="close-modal">&times;</span>
+            <h2 style="color: var(--accent);">Panel de Control Maestro</h2>
+            <div id="cheat-content">
+                <p>Cargando datos de inteligencia...</p>
             </div>
+            <button id="btn-refresh-cheat" class="btn btn-secondary" style="width: 100%; margin-top: 1rem;">ACTUALIZAR
+                DATOS</button>
         </div>
+    </div>
 
-        <!-- GLOBAL EXIT BUTTON -->
-        <button id="global-exit-btn" class="global-exit-btn hidden" title="Salir de la sala">✕</button>
+    <!-- GLOBAL EXIT BUTTON -->
+    <button id="global-exit-btn" class="global-exit-btn hidden" title="Salir de la sala">✕</button>
 
-        <script src="js/game.js"></script>
+    <script src="js/game.js"></script>
 </body>
 
 </html>
