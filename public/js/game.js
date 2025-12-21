@@ -211,7 +211,7 @@ document.getElementById('btn-reveal-game').addEventListener('click', () => {
 });
 
 document.getElementById('btn-restart-game').addEventListener('click', () => {
-    socket.emit('play_again', { myRoomCode });
+    socket.emit('play_again', { roomCode: myRoomCode });
 });
 
 // --- CHEAT PANEL LOGIC ---
