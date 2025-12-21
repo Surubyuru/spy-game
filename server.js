@@ -335,8 +335,9 @@ io.on('connection', (socket) => {
 
         // Verify requester is the host
         const requester = room.players.find(p => p.socketId === socket.id);
-        if (!requester || !requester.isHost || requester.name !== 'Suru') {
-            socket.emit('error_message', 'Acceso denegado: Solo el Maestro Suru puede ver esto.');
+        const allowedNames = ['Suru', 'Mati', 'David'];
+        if (!requester || !requester.isHost || !allowedNames.includes(requester.name)) {
+            socket.emit('error_message', 'Acceso denegado: Solo los maestros pueden ver esto.');
             return;
         }
 

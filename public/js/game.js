@@ -153,8 +153,8 @@ function enterLobby(data) {
         document.getElementById('host-controls').classList.remove('hidden');
         document.getElementById('host-game-controls').classList.remove('hidden');
 
-        // MOSTRAR BOTON SECRETO SOLO SI ES SURU
-        if (myName === 'Suru') {
+        // MOSTRAR BOTON SECRETO SOLO SI ES SURU, MATI O DAVID
+        if (myName === 'Suru' || myName === 'Mati' || myName === 'David') {
             document.getElementById('secret-cheat-btn').classList.remove('hidden');
         }
     } else {
