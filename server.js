@@ -96,6 +96,9 @@ io.on('connection', (socket) => {
             player.connected = true;
             socket.join(roomCode);
 
+            const spyNames = room.players.filter(p => p.role === 'spy').map(p => p.name);
+            const myTeammates = player.role === 'spy' ? spyNames.filter(name => name !== player.name) : [];
+
             // Restaurar estado al cliente
             socket.emit('rejoin_success', {
                 roomCode,
@@ -111,6 +114,7 @@ io.on('connection', (socket) => {
                     })),
                     myRole: player.role,
                     myWord: player.word,
+                    myTeammates: myTeammates,
                     category: room.category,
                     time: room.settings ? room.settings.time : 0
                 }
@@ -216,17 +220,25 @@ io.on('connection', (socket) => {
                 }
             }
 
+            const spyNames = room.players.filter(p => p.role === 'spy').map(p => p.name);
+
             room.players.forEach((player, index) => {
                 player.role = roles[index];
                 player.word = player.role === 'citizen' ? room.secretWord : '???';
 
                 if (player.connected && player.socketId) {
-                    io.to(player.socketId).emit('game_started', {
+                    const payload = {
                         role: player.role,
                         word: player.word,
                         category: room.category,
                         time: settings.time
-                    });
+                    };
+
+                    if (player.role === 'spy') {
+                        payload.teammates = spyNames.filter(name => name !== player.name);
+                    }
+
+                    io.to(player.socketId).emit('game_started', payload);
                 }
             });
 

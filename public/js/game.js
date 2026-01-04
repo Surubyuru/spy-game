@@ -60,11 +60,22 @@ socket.on('game_started', (data) => {
 
     const roleElem = document.getElementById('role-display');
     const catElem = document.getElementById('category-display');
+    const teamContainer = document.getElementById('teammates-container');
+    const teamList = document.getElementById('teammates-list');
+
+    // Reset teammates
+    teamContainer.classList.add('hidden');
+    teamList.innerText = '';
 
     if (data.role === 'spy') {
         roleElem.innerText = 'ESPÍA';
         roleElem.className = 'role-text impostor-text';
-        catElem.innerText = 'Descubre la palabra';
+        catElem.innerText = `Categoría: ${data.category}`;
+
+        if (data.teammates && data.teammates.length > 0) {
+            teamContainer.classList.remove('hidden');
+            teamList.innerText = data.teammates.join(', ');
+        }
     } else {
         roleElem.innerText = data.word;
         roleElem.className = 'role-text citizen-text';
@@ -335,11 +346,22 @@ socket.on('rejoin_success', (data) => {
             // Restore role info
             const roleElem = document.getElementById('role-display');
             const catElem = document.getElementById('category-display');
+            const teamContainer = document.getElementById('teammates-container');
+            const teamList = document.getElementById('teammates-list');
+
+            // Reset teammates
+            teamContainer.classList.add('hidden');
+            teamList.innerText = '';
 
             if (myRole === 'spy') {
                 roleElem.innerText = 'ESPÍA';
                 roleElem.className = 'role-text impostor-text';
-                catElem.innerText = 'Descubre la palabra';
+                catElem.innerText = `Categoría: ${data.gameDetails.category}`;
+
+                if (data.gameDetails.myTeammates && data.gameDetails.myTeammates.length > 0) {
+                    teamContainer.classList.remove('hidden');
+                    teamList.innerText = data.gameDetails.myTeammates.join(', ');
+                }
             } else {
                 roleElem.innerText = data.gameDetails.myWord;
                 roleElem.className = 'role-text citizen-text';
